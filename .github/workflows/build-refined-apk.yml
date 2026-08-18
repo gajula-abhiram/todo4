@@ -1,0 +1,40 @@
+name: Build Refined Android APK
+
+on:
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct refined Android source archive
+        run: |
+          cat srcb64fixed/part* | base64 --decode > refined-source.zip
+          unzip -t refined-source.zip
+          rm -rf android-build
+          mkdir android-build
+          unzip -q refined-source.zip -d android-build
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        run: yes | sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build APK
+        working-directory: android-build
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Copy APK
+        run: cp android-build/app/build/outputs/apk/debug/app-debug.apk IndoorFingerprintLab-v2.1.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IndoorFingerprintLab-v2.1-APK
+          path: IndoorFingerprintLab-v2.1.apk
+          if-no-files-found: error
