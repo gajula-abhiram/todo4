@@ -11,11 +11,13 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Unpack refined Android project
+      - name: Reconstruct refined Android source archive
         run: |
+          cat srcb64fixed/part* | base64 --decode > refined-source.zip
+          unzip -t refined-source.zip
           rm -rf android-build
           mkdir android-build
-          unzip -q android_project_refined_v2_fixed.zip -d android-build
+          unzip -q refined-source.zip -d android-build
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
