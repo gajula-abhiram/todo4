@@ -3,6 +3,8 @@ name: Build Android APK
 on:
   push:
     branches: [ "indoor-fingerprint-apk-build-20260818" ]
+  pull_request:
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
