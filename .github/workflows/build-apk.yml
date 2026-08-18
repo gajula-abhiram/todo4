@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Unpack Android project
-        run: unzip -q android_project_src.zip
+        run: mkdir -p android-build && unzip -q android_project_src.zip -d android-build
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -26,9 +26,10 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Build debug APK
+        working-directory: android-build
         run: gradle --no-daemon :app:assembleDebug
       - name: Copy APK to stable name
-        run: cp app/build/outputs/apk/debug/app-debug.apk IndoorFingerprintCollector.apk
+        run: cp android-build/app/build/outputs/apk/debug/app-debug.apk IndoorFingerprintCollector.apk
       - uses: actions/upload-artifact@v4
         with:
           name: IndoorFingerprintCollector-APK
