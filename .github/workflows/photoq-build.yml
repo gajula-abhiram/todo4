@@ -23,7 +23,7 @@ jobs:
           gradle-version: '8.10.2'
       - name: Decode source
         run: |
-          cat photoq-tar.00 photoq-tar.01 photoq-tar.02 photoq-tar.03 > /tmp/photoq.tar.xz.b64
+          cat photoq-tar.00 photoq-tar.01a photoq-tar.01b photoq-tar.01c photoq-tar.02 photoq-tar.03 > /tmp/photoq.tar.xz.b64
           base64 -d /tmp/photoq.tar.xz.b64 > /tmp/photoq.tar.xz
           mkdir -p photoq
           tar -xJf /tmp/photoq.tar.xz -C photoq
