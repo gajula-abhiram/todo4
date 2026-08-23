@@ -16,28 +16,39 @@ jobs:
           java-version: '17'
       - uses: android-actions/setup-android@v3
       - name: Install Android SDK
-        run: yes | sdkmanager --licenses >/dev/null || true; sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
       - name: Decode source
         run: |
+          cat photoq-tar.00 photoq-tar.01 photoq-tar.02 photoq-tar.03 > /tmp/photoq.tar.xz.b64
+          base64 -d /tmp/photoq.tar.xz.b64 > /tmp/photoq.tar.xz
           mkdir -p photoq
-          base64 -d photoq-src.zip.b64 > /tmp/photoq.zip
-          unzip -q /tmp/photoq.zip -d photoq
+          tar -xJf /tmp/photoq.tar.xz -C photoq
       - name: Run parser tests
         working-directory: photoq
         run: python3 -m unittest discover -s python_tests -v
-      - name: Build debug APK
-        working-directory: photoq
-        run: gradle --no-daemon :app:assembleDebug --stacktrace
-      - name: Export APK and checksum
+      - name: Build and publish result
+        shell: bash
         run: |
-          cp photoq/app/build/outputs/apk/debug/app-debug.apk PhotoQ-debug.apk
-          sha256sum PhotoQ-debug.apk > PhotoQ-debug.apk.sha256
-          base64 -w0 PhotoQ-debug.apk > PhotoQ-debug.apk.b64
+          set +e
+          cd photoq
+          gradle --no-daemon :app:assembleDebug --stacktrace > /tmp/photoq-build-full.log 2>&1
+          BUILD_RC=$?
+          cd ..
+          tail -n 1500 /tmp/photoq-build-full.log > PhotoQ-build.log
+          if [ $BUILD_RC -eq 0 ] && [ -f photoq/app/build/outputs/apk/debug/app-debug.apk ]; then
+            cp photoq/app/build/outputs/apk/debug/app-debug.apk PhotoQ-debug.apk
+            sha256sum PhotoQ-debug.apk > PhotoQ-debug.apk.sha256
+            base64 -w0 PhotoQ-debug.apk > PhotoQ-debug.apk.b64
+          fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add PhotoQ-debug.apk.b64 PhotoQ-debug.apk.sha256
-          git commit -m 'Build PhotoQ debug APK'
-          git push
+          git add PhotoQ-build.log
+          [ -f PhotoQ-debug.apk.b64 ] && git add PhotoQ-debug.apk.b64 PhotoQ-debug.apk.sha256
+          git commit -m 'PhotoQ APK build result' || true
+          git push || true
+          exit $BUILD_RC
