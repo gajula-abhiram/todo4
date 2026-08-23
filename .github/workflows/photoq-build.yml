@@ -2,12 +2,11 @@ name: Build PhotoQ APK
 on:
   push:
     branches: [photoq-apk-build-20260823]
+  pull_request:
+    branches: [main]
 jobs:
   build:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -31,24 +30,29 @@ jobs:
       - name: Run parser tests
         working-directory: photoq
         run: python3 -m unittest discover -s python_tests -v
-      - name: Build and publish result
+      - name: Build debug APK
+        id: assemble
+        continue-on-error: true
         shell: bash
         run: |
-          set +e
+          set -o pipefail
           cd photoq
-          gradle --no-daemon :app:assembleDebug --stacktrace > /tmp/photoq-build-full.log 2>&1
-          BUILD_RC=$?
-          cd ..
-          tail -n 1500 /tmp/photoq-build-full.log > PhotoQ-build.log
-          if [ $BUILD_RC -eq 0 ] && [ -f photoq/app/build/outputs/apk/debug/app-debug.apk ]; then
-            cp photoq/app/build/outputs/apk/debug/app-debug.apk PhotoQ-debug.apk
-            sha256sum PhotoQ-debug.apk > PhotoQ-debug.apk.sha256
-            base64 -w0 PhotoQ-debug.apk > PhotoQ-debug.apk.b64
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add PhotoQ-build.log
-          [ -f PhotoQ-debug.apk.b64 ] && git add PhotoQ-debug.apk.b64 PhotoQ-debug.apk.sha256
-          git commit -m 'PhotoQ APK build result' || true
-          git push || true
-          exit $BUILD_RC
+          gradle --no-daemon :app:assembleDebug --stacktrace 2>&1 | tee ../PhotoQ-build.log
+      - name: Prepare APK checksum
+        if: steps.assemble.outcome == 'success'
+        run: |
+          cp photoq/app/build/outputs/apk/debug/app-debug.apk PhotoQ-debug.apk
+          sha256sum PhotoQ-debug.apk > PhotoQ-debug.apk.sha256
+      - name: Upload build result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhotoQ-build-result
+          if-no-files-found: warn
+          path: |
+            PhotoQ-debug.apk
+            PhotoQ-debug.apk.sha256
+            PhotoQ-build.log
+      - name: Fail if APK build failed
+        if: steps.assemble.outcome == 'failure'
+        run: exit 1
