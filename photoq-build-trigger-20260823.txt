@@ -1,0 +1,1 @@
+Isolated PhotoQ APK build trigger. Do not merge.
