@@ -2,6 +2,8 @@ name: Build PhotoQ APK
 on:
   push:
     branches: [photoq-apk-build-20260823]
+  pull_request:
+    branches: [main]
 permissions:
   contents: write
 jobs:
@@ -55,10 +57,21 @@ jobs:
           set -o pipefail
           cd photoq
           gradle --no-daemon :app:assembleDebug --stacktrace 2>&1 | tee ../PhotoQ-build.log
-      - name: Publish APK to isolated branch
+      - name: Prepare APK
         run: |
           cp photoq/app/build/outputs/apk/debug/app-debug.apk PhotoQ-debug.apk
           sha256sum PhotoQ-debug.apk > PhotoQ-debug.apk.sha256
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhotoQ-debug
+          path: |
+            PhotoQ-debug.apk
+            PhotoQ-debug.apk.sha256
+            PhotoQ-build.log
+      - name: Publish APK to isolated branch
+        if: github.event_name == 'push'
+        run: |
           base64 -w0 PhotoQ-debug.apk > PhotoQ-debug.apk.b64
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
