@@ -1,0 +1,43 @@
+name: Build PhotoQ APK
+on:
+  push:
+    branches: [photoq-apk-build-20260823]
+jobs:
+  build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: yes | sdkmanager --licenses >/dev/null || true; sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Decode source
+        run: |
+          mkdir -p photoq
+          base64 -d photoq-src.zip.b64 > /tmp/photoq.zip
+          unzip -q /tmp/photoq.zip -d photoq
+      - name: Run parser tests
+        working-directory: photoq
+        run: python3 -m unittest discover -s python_tests -v
+      - name: Build debug APK
+        working-directory: photoq
+        run: gradle --no-daemon :app:assembleDebug --stacktrace
+      - name: Export APK and checksum
+        run: |
+          cp photoq/app/build/outputs/apk/debug/app-debug.apk PhotoQ-debug.apk
+          sha256sum PhotoQ-debug.apk > PhotoQ-debug.apk.sha256
+          base64 -w0 PhotoQ-debug.apk > PhotoQ-debug.apk.b64
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PhotoQ-debug.apk.b64 PhotoQ-debug.apk.sha256
+          git commit -m 'Build PhotoQ debug APK'
+          git push
